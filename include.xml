@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<project>
+
+    <source path="source" />
+
+    <haxelib name="lime" />
+
+<!--    <assets path="Assets" rename="assets" exclude="lime.svg" />
+    <icon path="Assets/lime.svg" />-->
+
+</project>

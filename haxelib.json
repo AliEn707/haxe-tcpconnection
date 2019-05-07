@@ -1,0 +1,12 @@
+{
+	"name": "TcpConnection",
+	"url" : "https://github.com/AliEn707/haxe-tcpconnection/",
+	"license": "MIT",
+	"tags": ["network", "openfl", "flash", "html5", "neko", "cpp", "tcp", "socket"],
+	"description": "Wrapper of tcp socket provides acync calls for all available languages",
+	"version": "1.0.0",
+	"classPath" : "source",
+	"releasenote": "Initial",
+	"contributors": ["wsandwitch"],
+	"dependencies": { "openfl": ""}
+}
