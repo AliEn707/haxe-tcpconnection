@@ -250,7 +250,9 @@ class TcpConnection{
 		_sock.writeShort(a);
 		_sock.flush();
 	#else
-		_worker.sendMessage(function(){_sock.output.writeInt16(a);});
+//		_worker.sendMessage(function(){
+		_sock.output.writeInt16(a);
+//		});
 	#end
 	}
 
@@ -259,7 +261,9 @@ class TcpConnection{
 		_sock.writeUnsignedShort(a);
 		_sock.flush();
 	#else
-		_worker.sendMessage(function(){_sock.output.writeUInt16(a);});
+//		_worker.sendMessage(function(){
+		_sock.output.writeUInt16(a);
+//		});
 	#end
 	}
 
@@ -268,7 +272,9 @@ class TcpConnection{
 		_sock.writeInt(a);
 		_sock.flush();
 	#else
-		_worker.sendMessage(function(){_sock.output.writeInt32(a);});
+//		_worker.sendMessage(function(){
+		_sock.output.writeInt32(a);
+//		});
 	#end
 	}
 
@@ -277,7 +283,9 @@ class TcpConnection{
 		_sock.writeFloat(a);
 		_sock.flush();
 	#else
-		_worker.sendMessage(function(){_sock.output.writeFloat(a);});
+//		_worker.sendMessage(function(){
+		_sock.output.writeFloat(a);
+//		});
 	#end
 	}
 
@@ -286,7 +294,9 @@ class TcpConnection{
 		_sock.writeDouble(a);
 		_sock.flush();
 	#else
-		_worker.sendMessage(function(){_sock.output.writeDouble(a);});
+//		_worker.sendMessage(function(){
+		_sock.output.writeDouble(a);	
+//		});
 	#end
 	}
 
@@ -295,7 +305,9 @@ class TcpConnection{
 		_sock.writeBytes(s.getData(), 0, s.length);
 		_sock.flush();
 	#else
-		_worker.sendMessage(function(){_sock.output.write(s);});
+//		_worker.sendMessage(function(){
+			_sock.output.write(s);	
+//		});
 	#end
 	}
 
@@ -304,10 +316,10 @@ class TcpConnection{
 		_sock.writeUTF(s);//unsigned!!
 		_sock.flush();
 	#else
-		_worker.sendMessage(function(){
+//		_worker.sendMessage(function(){
 			_sock.output.writeUInt16(s.length);
 			_sock.output.writeString(s); 
-		});
+//		});
 	#end
 	}
 	
