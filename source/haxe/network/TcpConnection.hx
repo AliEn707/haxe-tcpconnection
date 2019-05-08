@@ -380,12 +380,14 @@ class TcpConnection{
 #if !flash
 static inline var policy:String = "< cross - domain - policy >< allow - access - from domain =\" *\" to - ports =\" *\" /></cross - domain - policy > ";
 	
-	public function listen(port:Int, callback:TcpConnection->Void, ?fail:Dynamic->Void, host:String = "0.0.0.0", maxconnections:Int = 0){
+	public function listen(port:Int, connected:TcpConnection->Void, ?created:TcpConnection->Void, ?fail:Dynamic->Void, host:String = "0.0.0.0", maxconnections:Int = 0){
         _timer.run = _checkWorkflow;
 		_worker=Thread.create(function(){
 			_sock.bind(new sys.net.Host(host), port);
 			_sock.listen(maxconnections);
 //	        trace("Starting server...");
+			if (created != null)
+				created(this);
 			try{
 				while( true ) {
 					var c:Socket = _sock.accept();
@@ -405,7 +407,7 @@ static inline var policy:String = "< cross - domain - policy >< allow - access -
 							conn._sock.setFastSend(true);
 							conn._timer.run = conn._checkWorkflow;
 							conn._worker = Thread.create(_doWork);
-							callback(conn);
+							connected(conn);
 						});
 					}
 				}
