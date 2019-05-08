@@ -317,112 +317,20 @@ class TcpConnection{
 			var size:UInt = _sock.readUnsignedShort();
 			_workflow.shift();
 			_workflow.unshift(_workerAction.bind(size, function(){
-				var p:Packet = new Packet();
-				p.size = size;
-				p.type = _sock.readByte();
-				size--;
-				_sock.readByte();//number of chanks
-				size--;
-				while(size>1){
-					var type:Int = _sock.input.readInt8();
-					size--;
-					var c:Chank = new Chank(type);
-					switch type {
-						case 1: 
-							c.i = _sock.readByte();
-							size-= 1;
-						case 2: 
-							c.i=_sock.readShort();
-							size-= 2;
-						case 3: 
-							c.i=_sock.readInt();
-							size-= 4;
-						case 4: 
-							c.f=_sock.readFloat();
-							size-= 4;
-						case 5: 
-							c.f=_sock.readDouble();
-							size-= 8;
-						case 6: 
-							c.s=_sock.input.readUTF();
-							size-= c.s.length+2;
-					}
-					p.chanks.push(c);
-				}
-				delay(callback.bind(p));
+				delay(callback.bind(Packet.fromBytes(Bytes.ofString(_sock.readUTFBytes(size)))));
 			}));
 			_workflow.unshift(function():Bool{return true;});
 		}));
 	#else
 		_worker.sendMessage(function(){
-			var p:Packet = new Packet();
-			p.size = _sock.input.readUInt16();
-			var size = p.size;
-			p.type = _sock.input.readInt8();
-			size--;
-			_sock.input.readInt8();//number of chanks
-			size--;
-			while(size>1){
-				var type:Int = _sock.input.readInt8();
-				size--;
-				var c:Chank = new Chank(type);
-				switch type {
-					case 1: 
-						c.i = _sock.input.readInt8();
-						size-= 1;
-					case 2: 
-						c.i=_sock.input.readInt16();
-						size-= 2;
-					case 3: 
-						c.i=_sock.input.readInt32();
-						size-= 4;
-					case 4: 
-						c.f=_sock.input.readFloat();
-						size-= 4;
-					case 5: 
-						c.f=_sock.input.readDouble();
-						size-= 8;
-					case 6: 
-						var s:Int = _sock.input.readUInt16();
-						c.s=_sock.input.readString(s);
-						size-= c.s.length+2;
-				}
-				p.chanks.push(c);
-			}
-			_main.sendMessage(callback.bind(p)); 
+			_main.sendMessage(callback.bind(Packet.fromBytes(_sock.input.read(_sock.input.readUInt16())))); 
 		});
 	#end
 	}
 
 	public function sendPacket(p:Packet):Void{
-		var buf:BytesOutput = new BytesOutput();
-		buf.bigEndian = false;
-		buf.writeInt16(p.size+2);
-		buf.writeInt8(p.type);
-		buf.writeInt8(p.chanks.length>125 ? -1 : p.chanks.length);
-		for (c in p.chanks){
-			if (c.type>0 && c.type<7){
-				buf.writeInt8(c.type);
-				switch c.type {
-					case 1: 
-						buf.writeInt8(c.i);
-					case 2: 
-						buf.writeInt16(c.i);
-					case 3: 
-						buf.writeInt32(c.i);
-					case 4: 
-						buf.writeFloat(c.f);
-					case 5: 
-						buf.writeDouble(c.f);
-					case 6: 
-						buf.writeInt16(c.s.length);
-						buf.writeString(c.s);
-//					default: trace("wrong chank");
-				}
-			}
-		}
 		write.lock();
-			sendBytes(buf.getBytes());
+			sendBytes(p.getBytes());
 		write.unlock();		
 	}
 	
@@ -470,6 +378,8 @@ class TcpConnection{
 	}
 #end
 #if !flash
+static inline var policy:String = "< cross - domain - policy >< allow - access - from domain =\" *\" to - ports =\" *\" /></cross - domain - policy > ";
+	
 	public function listen(port:Int, callback:TcpConnection->Void, ?fail:Dynamic->Void, host:String = "0.0.0.0", maxconnections:Int = 0){
         _timer.run = _checkWorkflow;
 		_worker=Thread.create(function(){
@@ -479,16 +389,25 @@ class TcpConnection{
 			try{
 				while( true ) {
 					var c:Socket = _sock.accept();
-					_main.sendMessage(function(){
-						var conn:TcpConnection = new TcpConnection();
-						conn._sock = c;
-						conn._sock.input.bigEndian = false;
-						conn._sock.output.bigEndian = false;
-						conn._sock.setFastSend(true);
-						conn._timer.run = conn._checkWorkflow;
-						conn._worker = Thread.create(_doWork);
-						callback(conn);
-					});
+					c.setTimeout(2);
+					var p = c.input.read(2);
+					if (p.toString() == "<p"){//flash policy ask
+						c.setFastSend(true);
+						c.output.write(Bytes.ofString(policy));
+						c.close();
+					}else{
+						_main.sendMessage(function(){
+							var conn:TcpConnection = new TcpConnection();
+							conn._sock = c;
+							conn._sock.setTimeout(0);
+							conn._sock.input.bigEndian = false;
+							conn._sock.output.bigEndian = false;
+							conn._sock.setFastSend(true);
+							conn._timer.run = conn._checkWorkflow;
+							conn._worker = Thread.create(_doWork);
+							callback(conn);
+						});
+					}
 				}
 			}catch(e:Dynamic){
 				if (fail != null)
