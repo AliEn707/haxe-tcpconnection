@@ -2,6 +2,7 @@ package haxe.network;
 import haxe.io.Bytes;
 import haxe.io.BytesInput;
 import haxe.io.BytesOutput;
+import lime.utils.compress.LZMA;
 
 
 class Chank{
@@ -36,6 +37,14 @@ class Chank{
 		return type == 6;
 	}
 	
+	public function isBytes():Bool{
+		return type == 7;
+	}
+	
+	public function isCompressed():Bool{
+		return type == 8;
+	}
+	
 	public function getInt():Int{
 		return data;
 	}
@@ -47,13 +56,16 @@ class Chank{
 	public function getString():String{
 		return data;
 	}
+	
+	public function getBytes():Bytes{
+		return data;
+	}
 }
 
 class Packet{
 	
 	public var chanks:Array<Chank>;
 	public var type:Int;
-	public var size:Int;
 	
 	public function new(){
 		init();
@@ -61,55 +73,61 @@ class Packet{
 	
 	public function init():Void{
 		chanks = [];
-		size = 0;
 	}
 	
 	public function addByte(a:Int):Void{
 		var c:Chank=new Chank(1);
 		c.data=a;
 		chanks.push(c);
-		size+= 2;
 	}
 	
 	public function addShort(a:Int):Void{
 		var c:Chank=new Chank(2);
 		c.data=a;
 		chanks.push(c);
-		size+= 3;
 	}
 	
 	public function addInt(a:Int):Void{
 		var c:Chank=new Chank(3);
 		c.data=a;
 		chanks.push(c);
-		size+= 5;
 	}
 	
 	public function addFloat(a:Float):Void{
 		var c:Chank=new Chank(4);
 		c.data=a;
 		chanks.push(c);
-		size+= 5;
 	}
 	
 	public function addDouble(a:Float):Void{
 		var c:Chank=new Chank(5);
 		c.data=a;
 		chanks.push(c);
-		size+= 9;
 	}
 	
 	public function addString(a:String):Void{
 		var c:Chank=new Chank(6);
 		c.data=a;
 		chanks.push(c);
-		size+= 1+2+a.length;
+	}
+	
+	public function addBytes(a:Bytes):Void{
+		var c:Chank=new Chank(7);
+		c.data=a;
+		chanks.push(c);
+	}
+	
+	public function addCompressed(a:Bytes):Void{
+		var c:Chank=new Chank(8);
+		c.data=a;
+		chanks.push(c);
 	}
 	
 	public function getBytes():Bytes{
 		var buf:BytesOutput = new BytesOutput();
+		var size = 2;
 		buf.bigEndian = false;
-		buf.writeUInt16(size+2);
+		buf.writeUInt16(0);
 		buf.writeInt8(type);
 		buf.writeInt8(chanks.length>125 ? -1 : chanks.length);
 		for (c in chanks){
@@ -118,29 +136,48 @@ class Packet{
 				switch c.type {
 					case 1: 
 						buf.writeInt8(c.data);
+						size+= 1;
 					case 2: 
 						buf.writeInt16(c.data);
+						size+= 2;
 					case 3: 
 						buf.writeInt32(c.data);
+						size+= 4;
 					case 4: 
 						buf.writeFloat(c.data);
+						size+= 4;
 					case 5: 
 						buf.writeDouble(c.data);
+						size+= 8;
 					case 6: 
-						buf.writeUInt16(cast(c.data, String).length);
+						var ss = cast(c.data, String).length;
+						buf.writeUInt16(ss);
 						buf.writeString(c.data);
-//					default: trace("wrong chank");
+						size+= ss;
+					case 7: 
+						var ss = cast(c.data, Bytes).length;
+						buf.writeUInt16(ss);
+						buf.write(c.data);
+						size+= ss;
+					case 8: 
+						var data:Bytes = LZMA.encode(cast(c.data, Bytes));
+						var ss = data.length;
+						buf.writeUInt16(ss);
+						buf.write(data);
+						size+= ss;
+					default: trace("wrong chank");
 				}
 			}
 		}
-		return buf.getBytes();
+		var bytes:Bytes = buf.getBytes();
+		bytes.setUInt16(0, size);
+		return bytes;
 	}
 	
 	public static function fromBytes(b:Bytes):Packet{
 		var p:Packet = new Packet();
 		var bi:BytesInput = new BytesInput(b);
 		var size = b.length;
-		p.size = size;
 		p.type = bi.readInt8();
 		size--;
 		bi.readInt8();//number of chanks
@@ -168,7 +205,15 @@ class Packet{
 				case 6: 
 					var s:Int = bi.readUInt16();
 					c.data=bi.readString(s);
-					size-= cast(c.data,String).length+2;
+					size-= s+2;
+				case 7: 
+					var s:Int = bi.readUInt16();
+					c.data=bi.read(s);
+					size-= s+2;
+				case 8: 
+					var s:Int = bi.readUInt16();
+					c.data=LZMA.decode(bi.read(s));
+					size-= cast(c.data,Bytes).length+2;
 			}
 			p.chanks.push(c);
 		}
