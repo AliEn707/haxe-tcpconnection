@@ -2,7 +2,7 @@ package haxe.network;
 import haxe.io.Bytes;
 import haxe.io.BytesInput;
 import haxe.io.BytesOutput;
-import lime.utils.compress.LZMA;
+import lime.utils.CompressionAlgorithm;
 
 
 class Chank{
@@ -160,7 +160,7 @@ class Packet{
 						buf.write(c.data);
 						size+= ss;
 					case 8: 
-						var data:Bytes = LZMA.encode(cast(c.data, Bytes));
+						var data:Bytes = cast(c.data, lime.utils.Bytes).compress(CompressionAlgorithm.LZMA);
 						var ss = data.length;
 						buf.writeUInt16(ss);
 						buf.write(data);
@@ -212,7 +212,7 @@ class Packet{
 					size-= s+2;
 				case 8: 
 					var s:Int = bi.readUInt16();
-					c.data=LZMA.decode(bi.read(s));
+					c.data=cast(bi.read(s), lime.utils.Bytes).compress(CompressionAlgorithm.LZMA);
 					size-= cast(c.data,Bytes).length+2;
 			}
 			p.chanks.push(c);
