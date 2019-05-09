@@ -42,7 +42,7 @@ class Chank{
 	}
 	
 	public function isCompressed():Bool{
-		return type == 8;
+		return type >= 8 && type<=10;
 	}
 	
 	public function getInt():Int{
@@ -65,7 +65,7 @@ class Chank{
 class Packet{
 	
 	public var chanks:Array<Chank>;
-	public var type:Int;
+	public var type:Int=0;
 	
 	public function new(){
 		init();
@@ -117,8 +117,20 @@ class Packet{
 		chanks.push(c);
 	}
 	
-	public function addCompressed(a:Bytes):Void{
+	public function addCompressLZMA(a:Bytes):Void{
 		var c:Chank=new Chank(8);
+		c.data=a;
+		chanks.push(c);
+	}
+	
+	public function addCompressZLIB(a:Bytes):Void{
+		var c:Chank=new Chank(9);
+		c.data=a;
+		chanks.push(c);
+	}
+	
+	public function addCompressGZIP(a:Bytes):Void{
+		var c:Chank=new Chank(10);
 		c.data=a;
 		chanks.push(c);
 	}
@@ -127,51 +139,59 @@ class Packet{
 		var buf:BytesOutput = new BytesOutput();
 		var size = 2;
 		buf.bigEndian = false;
-		buf.writeUInt16(0);
 		buf.writeInt8(type);
 		buf.writeInt8(chanks.length>125 ? -1 : chanks.length);
 		for (c in chanks){
-			if (c.type>0 && c.type<7){
-				buf.writeInt8(c.type);
-				switch c.type {
-					case 1: 
-						buf.writeInt8(c.data);
-						size+= 1;
-					case 2: 
-						buf.writeInt16(c.data);
-						size+= 2;
-					case 3: 
-						buf.writeInt32(c.data);
-						size+= 4;
-					case 4: 
-						buf.writeFloat(c.data);
-						size+= 4;
-					case 5: 
-						buf.writeDouble(c.data);
-						size+= 8;
-					case 6: 
-						var ss = cast(c.data, String).length;
-						buf.writeUInt16(ss);
-						buf.writeString(c.data);
-						size+= ss;
-					case 7: 
-						var ss = cast(c.data, Bytes).length;
-						buf.writeUInt16(ss);
-						buf.write(c.data);
-						size+= ss;
-					case 8: 
-						var data:Bytes = cast(c.data, lime.utils.Bytes).compress(CompressionAlgorithm.LZMA);
-						var ss = data.length;
-						buf.writeUInt16(ss);
-						buf.write(data);
-						size+= ss;
-					default: trace("wrong chank");
-				}
+			buf.writeInt8(c.type);
+			switch c.type {
+				case 1: 
+					buf.writeInt8(c.data);
+					size+= 1;
+				case 2: 
+					buf.writeInt16(c.data);
+					size+= 2;
+				case 3: 
+					buf.writeInt32(c.data);
+					size+= 4;
+				case 4: 
+					buf.writeFloat(c.data);
+					size+= 4;
+				case 5: 
+					buf.writeDouble(c.data);
+					size+= 8;
+				case 6: 
+					var ss = cast(c.data, String).length;
+					buf.writeUInt16(ss);
+					buf.writeString(c.data);
+					size+= ss;
+				case 7: 
+					var ss = cast(c.data, Bytes).length;
+					buf.writeUInt16(ss);
+					buf.write(c.data);
+					size+= ss;
+				case 8: 
+					var data:Bytes = lime.utils.Bytes.fromBytes(c.data).compress(CompressionAlgorithm.LZMA);
+					var ss = data.length;
+					buf.writeUInt16(ss);
+					buf.write(data);
+					size+= ss;
+				case 9: 
+					var data:Bytes = lime.utils.Bytes.fromBytes(c.data).compress(CompressionAlgorithm.ZLIB);
+					var ss = data.length;
+					buf.writeUInt16(ss);
+					buf.write(data);
+					size+= ss;
+				case 10: 
+					var data:Bytes = lime.utils.Bytes.fromBytes(c.data).compress(CompressionAlgorithm.GZIP);
+					var ss = data.length;
+					buf.writeUInt16(ss);
+					buf.write(data);
+					size+= ss;
+				default: 
+					trace("wrong chank");
 			}
 		}
-		var bytes:Bytes = buf.getBytes();
-		bytes.setUInt16(0, size);
-		return bytes;
+		return buf.getBytes();
 	}
 	
 	public static function fromBytes(b:Bytes):Packet{
@@ -212,7 +232,18 @@ class Packet{
 					size-= s+2;
 				case 8: 
 					var s:Int = bi.readUInt16();
-					c.data=cast(bi.read(s), lime.utils.Bytes).compress(CompressionAlgorithm.LZMA);
+					c.data=lime.utils.Bytes.fromBytes(bi.read(s)).decompress(CompressionAlgorithm.LZMA);
+					trace(c.data);
+					size-= cast(c.data,Bytes).length+2;
+				case 8: 
+					var s:Int = bi.readUInt16();
+					c.data=lime.utils.Bytes.fromBytes(bi.read(s)).decompress(CompressionAlgorithm.ZLIB);
+					trace(c.data);
+					size-= cast(c.data,Bytes).length+2;
+				case 8: 
+					var s:Int = bi.readUInt16();
+					c.data=lime.utils.Bytes.fromBytes(bi.read(s)).decompress(CompressionAlgorithm.GZIP);
+					trace(c.data);
 					size-= cast(c.data,Bytes).length+2;
 			}
 			p.chanks.push(c);
