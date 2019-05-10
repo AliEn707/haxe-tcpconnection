@@ -431,4 +431,19 @@ static inline var policy:String = "< cross - domain - policy >< allow - access -
 		});
 	}
 #end
+
+	/**
+	 * Get local ip address, required internet for correct work, otherwise may return 127.0.0.1;
+	 * @return
+	 */
+	public static function getMyHost():String{
+		try{
+			var s = new sys.net.Socket();
+			s.connect(new sys.net.Host("ya.ru"), 80);
+			var host = s.host().host.toString();
+			s.close();
+			return host;
+		}catch (e:Dynamic){trace(e); };
+		return new sys.net.Host(sys.net.Host.localhost()).toString();
+	}
 }
