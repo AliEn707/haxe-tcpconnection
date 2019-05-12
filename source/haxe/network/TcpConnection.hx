@@ -200,11 +200,11 @@ class TcpConnection{
 	#if flash
 		if (size == null){
 			_workflow.push(_workerAction.bind(2, function(){
-				delay(callback.bind(Bytes.ofString(_sock.readUTF())));
+				delay(callback.bind(Bytes.ofString(_sock.readUTF())),1);
 			}));
 		}else{
 			_workflow.push(_workerAction.bind(size, function(){
-				delay(callback.bind(Bytes.ofString(_sock.readUTFBytes(size))));
+				delay(callback.bind(Bytes.ofString(_sock.readUTFBytes(size))),1);
 			}));
 		}
 	#else
@@ -220,11 +220,11 @@ class TcpConnection{
 	#if flash
 		if (size == null){
 			_workflow.push(_workerAction.bind(2, function(){
-				delay(callback.bind(_sock.readUTF()));
+				delay(callback.bind(_sock.readUTF()), 1);
 			}));
 		}else{
 			_workflow.push(_workerAction.bind(size, function(){
-				delay(callback.bind(_sock.readUTFBytes(size)));
+				delay(callback.bind(_sock.readUTFBytes(size)), 1);
 			}));
 		}
 	#else
@@ -258,7 +258,7 @@ class TcpConnection{
 
 	public function sendUShort(a:UInt):Void{
 	#if flash
-		_sock.writeUnsignedShort(a);
+		_sock.writeShort(a); //TODO:check
 		_sock.flush();
 	#else
 //		_worker.sendMessage(function(){
@@ -329,7 +329,7 @@ class TcpConnection{
 			var size:UInt = _sock.readUnsignedShort();
 			_workflow.shift();
 			_workflow.unshift(_workerAction.bind(size, function(){
-				delay(callback.bind(Packet.fromBytes(Bytes.ofString(_sock.readUTFBytes(size)))));
+				delay(callback.bind(Packet.fromBytes(Bytes.ofString(_sock.readUTFBytes(size)))), 1);
 			}));
 			_workflow.unshift(function():Bool{return true;});
 		}));
@@ -348,14 +348,15 @@ class TcpConnection{
 	
 	private function _checkWorkflow(){
 	#if flash
-		while(_workflow.length > 0){
-			var work = _workflow[0];
-			if (work()){
+		try{
+			while(_workflow.length > 0){
+				var work = _workflow[0];
+				work();
 				_workflow.shift();
 				work = null;
-			}else{
-				break;
 			}
+		}catch(e:Dynamic){
+			//trace(e);
 		}
 	#else
 		try{
@@ -390,7 +391,7 @@ class TcpConnection{
 	}
 #end
 #if !flash
-static inline var policy:String = "< cross - domain - policy >< allow - access - from domain =\" *\" to - ports =\" *\" /></cross - domain - policy > ";
+	static inline var policy:String = "< cross - domain - policy >< allow - access - from domain =\" *\" to - ports =\" *\" /></cross - domain - policy > ";
 	
 	public function listen(port:Int, connected:TcpConnection->Void, ?created:TcpConnection->Void, ?fail:Dynamic->Void, host:String = "0.0.0.0", maxconnections:Int = 0){
         _timer.run = _checkWorkflow;
@@ -430,7 +431,7 @@ static inline var policy:String = "< cross - domain - policy >< allow - access -
 			_sock.close();
 		});
 	}
-#end
+
 
 	/**
 	 * Get local ip address, required internet for correct work, otherwise may return 127.0.0.1;
@@ -446,4 +447,6 @@ static inline var policy:String = "< cross - domain - policy >< allow - access -
 		}catch (e:Dynamic){trace(e); };
 		return new sys.net.Host(sys.net.Host.localhost()).toString();
 	}
+	
+#end
 }
