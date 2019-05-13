@@ -360,9 +360,11 @@ class TcpConnection{
 		}
 	#else
 		try{
-			var work:Void->Void = Thread.readMessage(false);
-			if (work != null)
-				work();
+			do{
+				var work:Void->Void = Thread.readMessage(false);
+				if (work != null)
+					work();
+			}while(work != null);
 		}catch(e:Dynamic){
 			trace(e);
 		}
