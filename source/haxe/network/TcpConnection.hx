@@ -341,8 +341,10 @@ class TcpConnection{
 	}
 
 	public function sendPacket(p:Packet):Void{
+		var bytes:Bytes = p.getBytes();
 		write.lock();
-			sendBytes(p.getBytes());
+			sendUShort(bytes.length);
+			sendBytes(bytes);
 		write.unlock();		
 	}
 	
@@ -360,8 +362,9 @@ class TcpConnection{
 		}
 	#else
 		try{
+			var work:Null<Void->Void>;
 			do{
-				var work:Void->Void = Thread.readMessage(false);
+				work = Thread.readMessage(false);
 				if (work != null)
 					work();
 			}while(work != null);
@@ -398,12 +401,13 @@ class TcpConnection{
 	public function listen(port:Int, connected:TcpConnection->Void, ?created:TcpConnection->Void, ?fail:Dynamic->Void, host:String = "0.0.0.0", maxconnections:Int = 0){
         _timer.run = _checkWorkflow;
 		_worker=Thread.create(function(){
-			sock.bind(new sys.net.Host(host), port);
-			sock.listen(maxconnections);
-//	        trace("Starting server...");
-			if (created != null)
-				created(this);
 			try{
+				sock.bind(new sys.net.Host(host), port);
+				sock.listen(maxconnections);
+//	        	trace("Starting server...");
+				if (created != null)
+				created(this);
+
 				while( true ) {
 					var c:Socket = sock.accept();
 					c.setTimeout(2);
@@ -426,10 +430,12 @@ class TcpConnection{
 						});
 					}
 				}
-			}catch(e:Dynamic){
+			}catch (e:Dynamic){
+				trace(e);
 				if (fail != null)
 					fail(e);
 			}
+			_timer.stop();
 			sock.close();
 		});
 	}
@@ -450,5 +456,20 @@ class TcpConnection{
 		return new sys.net.Host(sys.net.Host.localhost()).toString();
 	}
 
+	public static function isAvailable(host:String, port:Int):Bool{
+		var s = new sys.net.Socket();
+		try{
+			s.setTimeout(0.1);
+			s.connect(new sys.net.Host(host), port);
+			s.setTimeout(0.1);
+			s.output.writeByte(1);
+			s.close();
+			return true;
+		}catch(e:Dynamic){
+			trace(e);
+		}
+		return false;
+	}
+	
 #end
 }
