@@ -29,9 +29,9 @@ import java.vm.Thread;
 class TcpConnection{
 	public var write:Lock = new Lock();
 	public var read:Lock = new Lock();
+	public var sock:Null<Socket> = null;
 	
 	private var _timer:Timer = new Timer(100); //TODO: check delay value
-	private var _sock:Null<Socket> = null;
 	private var _fail:Null<Dynamic->Void>;
 	
 #if flash
@@ -42,7 +42,7 @@ class TcpConnection{
 #end
 
 	public function new(){
-		_sock = new Socket();
+		sock = new Socket();
 	#if !flash
 		_main = Thread.current();
 	#end
@@ -51,8 +51,8 @@ class TcpConnection{
 #if flash	
 	private function _connect(host:String, port:Int, ?success:TcpConnection->Void, ?fail:Dynamic->Void){
 		try{
-			_sock.connect(host, port);
-			_sock.endian = LITTLE_ENDIAN;
+			sock.connect(host, port);
+			sock.endian = LITTLE_ENDIAN;
 			_timer.run = _checkWorkflow;
 			if (success != null)
 				success(this);
@@ -69,10 +69,10 @@ class TcpConnection{
 		var success:Null<TcpConnection->Void> = Thread.readMessage(true);
 		var fail:Null<Dynamic->Void> = Thread.readMessage(true);
 		try{
-			_sock.connect(new Host(host), port);
-			_sock.input.bigEndian = false;
-			_sock.output.bigEndian = false;
-			_sock.setFastSend(true);
+			sock.connect(new Host(host), port);
+			sock.input.bigEndian = false;
+			sock.output.bigEndian = false;
+			sock.setFastSend(true);
 			if (success != null)
 				success(this);
 			_doWork();
@@ -110,7 +110,7 @@ class TcpConnection{
 	}
 	
 	public function close(){
-		_sock.close();
+		sock.close();
 	}
 
 	public function setFailCallback(fail:Dynamic->Void){
@@ -119,19 +119,19 @@ class TcpConnection{
 	
 #if flash 
 	private function bytesAvailable(size:UInt):Bool{
-//		trace(_sock.bytesAvailable);
-		return _sock.bytesAvailable>=size;
+//		trace(sock.bytesAvailable);
+		return sock.bytesAvailable>=size;
 	}
 #end
 
 	public function recvByte(callback:Int->Void){
 	#if flash
 		_workflow.push(_workerAction.bind(1, function(){
-			delay(callback.bind(_sock.readByte()), 1);
+			delay(callback.bind(sock.readByte()), 1);
 		}));
 	#else
 		_worker.sendMessage(function(){
-			_main.sendMessage(callback.bind(_sock.input.readInt8())); 
+			_main.sendMessage(callback.bind(sock.input.readInt8())); 
 		});
 	#end
 	}
@@ -139,11 +139,11 @@ class TcpConnection{
 	public function recvShort(callback:Int->Void){
 	#if flash
 		_workflow.push(_workerAction.bind(2, function(){
-			delay(callback.bind(_sock.readShort()), 1);
+			delay(callback.bind(sock.readShort()), 1);
 		}));
 	#else
 		_worker.sendMessage(function(){
-			_main.sendMessage(callback.bind(_sock.input.readInt16())); 
+			_main.sendMessage(callback.bind(sock.input.readInt16())); 
 		});
 	#end
 	}
@@ -151,11 +151,11 @@ class TcpConnection{
 	public function recvUShort(callback:UInt->Void){
 	#if flash
 		_workflow.push(_workerAction.bind(2, function(){
-			delay(callback.bind(_sock.readUnsignedShort()), 1);
+			delay(callback.bind(sock.readUnsignedShort()), 1);
 		}));
 	#else
 		_worker.sendMessage(function(){
-			_main.sendMessage(callback.bind(_sock.input.readUInt16())); 
+			_main.sendMessage(callback.bind(sock.input.readUInt16())); 
 		});
 	#end
 	}
@@ -163,11 +163,11 @@ class TcpConnection{
 	public function recvInt(callback:Int->Void){
 	#if flash
 		_workflow.push(_workerAction.bind(4, function(){
-			delay(callback.bind(_sock.readInt()), 1);
+			delay(callback.bind(sock.readInt()), 1);
 		}));
 	#else
 		_worker.sendMessage(function(){
-			_main.sendMessage(callback.bind(_sock.input.readInt32())); 
+			_main.sendMessage(callback.bind(sock.input.readInt32())); 
 		});
 	#end
 	}
@@ -175,11 +175,11 @@ class TcpConnection{
 	public function recvFloat(callback:Float->Void){
 	#if flash
 		_workflow.push(_workerAction.bind(4, function(){
-			delay(callback.bind(_sock.readFloat()), 1);
+			delay(callback.bind(sock.readFloat()), 1);
 		}));
 	#else
 		_worker.sendMessage(function(){
-			_main.sendMessage(callback.bind(_sock.input.readFloat())); 
+			_main.sendMessage(callback.bind(sock.input.readFloat())); 
 		});
 	#end
 	}
@@ -187,11 +187,11 @@ class TcpConnection{
 	public function recvDouble(callback:Float->Void){
 	#if flash
 		_workflow.push(_workerAction.bind(8, function(){
-			delay(callback.bind(_sock.readDouble()), 1);
+			delay(callback.bind(sock.readDouble()), 1);
 		}));
 	#else
 		_worker.sendMessage(function(){
-			_main.sendMessage(callback.bind(_sock.input.readDouble())); 
+			_main.sendMessage(callback.bind(sock.input.readDouble())); 
 		});
 	#end
 	}
@@ -200,18 +200,18 @@ class TcpConnection{
 	#if flash
 		if (size == null){
 			_workflow.push(_workerAction.bind(2, function(){
-				delay(callback.bind(Bytes.ofString(_sock.readUTF())),1);
+				delay(callback.bind(Bytes.ofString(sock.readUTF())),1);
 			}));
 		}else{
 			_workflow.push(_workerAction.bind(size, function(){
-				delay(callback.bind(Bytes.ofString(_sock.readUTFBytes(size))),1);
+				delay(callback.bind(Bytes.ofString(sock.readUTFBytes(size))),1);
 			}));
 		}
 	#else
 		_worker.sendMessage(function(){
 			if (size==null)
-				size=_sock.input.readUInt16();
-			_main.sendMessage(callback.bind(_sock.input.read(size))); 
+				size=sock.input.readUInt16();
+			_main.sendMessage(callback.bind(sock.input.read(size))); 
 		});
 	#end
 	}
@@ -220,105 +220,105 @@ class TcpConnection{
 	#if flash
 		if (size == null){
 			_workflow.push(_workerAction.bind(2, function(){
-				delay(callback.bind(_sock.readUTF()), 1);
+				delay(callback.bind(sock.readUTF()), 1);
 			}));
 		}else{
 			_workflow.push(_workerAction.bind(size, function(){
-				delay(callback.bind(_sock.readUTFBytes(size)), 1);
+				delay(callback.bind(sock.readUTFBytes(size)), 1);
 			}));
 		}
 	#else
 		_worker.sendMessage(function(){
 			if (size==null)
-				size=_sock.input.readUInt16();
-			_main.sendMessage(callback.bind(_sock.input.readString(size))); 
+				size=sock.input.readUInt16();
+			_main.sendMessage(callback.bind(sock.input.readString(size))); 
 		});
 	#end
 	}
 
 	public function sendByte(a:Int):Void{
 	#if flash
-		_sock.writeByte(a);
-		_sock.flush();
+		sock.writeByte(a);
+		sock.flush();
 	#else
-		_sock.output.writeInt8(a);
+		sock.output.writeInt8(a);
 	#end
 	}
 
 	public function sendShort(a:Int):Void{
 	#if flash
-		_sock.writeShort(a);
-		_sock.flush();
+		sock.writeShort(a);
+		sock.flush();
 	#else
 //		_worker.sendMessage(function(){
-		_sock.output.writeInt16(a);
+		sock.output.writeInt16(a);
 //		});
 	#end
 	}
 
 	public function sendUShort(a:UInt):Void{
 	#if flash
-		_sock.writeShort(a); //TODO:check
-		_sock.flush();
+		sock.writeShort(a); //TODO:check
+		sock.flush();
 	#else
 //		_worker.sendMessage(function(){
-		_sock.output.writeUInt16(a);
+		sock.output.writeUInt16(a);
 //		});
 	#end
 	}
 
 	public function sendInt(a:Int):Void{
 	#if flash
-		_sock.writeInt(a);
-		_sock.flush();
+		sock.writeInt(a);
+		sock.flush();
 	#else
 //		_worker.sendMessage(function(){
-		_sock.output.writeInt32(a);
+		sock.output.writeInt32(a);
 //		});
 	#end
 	}
 
 	public function sendFloat(a:Float):Void{
 	#if flash
-		_sock.writeFloat(a);
-		_sock.flush();
+		sock.writeFloat(a);
+		sock.flush();
 	#else
 //		_worker.sendMessage(function(){
-		_sock.output.writeFloat(a);
+		sock.output.writeFloat(a);
 //		});
 	#end
 	}
 
 	public function sendDouble(a:Float):Void{
 	#if flash
-		_sock.writeDouble(a);
-		_sock.flush();
+		sock.writeDouble(a);
+		sock.flush();
 	#else
 //		_worker.sendMessage(function(){
-		_sock.output.writeDouble(a);	
+		sock.output.writeDouble(a);	
 //		});
 	#end
 	}
 
 	public function sendBytes(s:Bytes):Void{
 	#if flash
-		_sock.writeBytes(s.getData(), 0, s.length);
-		_sock.flush();
+		sock.writeBytes(s.getData(), 0, s.length);
+		sock.flush();
 	#else
 //		_worker.sendMessage(function(){
-			_sock.output.write(s);	
+			sock.output.write(s);	
 //		});
 	#end
 	}
 
 	public function sendString(s:String):Void{
 	#if flash
-		_sock.writeUTF(s);//unsigned!!
-		_sock.flush();
+		sock.writeUTF(s);//unsigned!!
+		sock.flush();
 	#else
 //		_worker.sendMessage(function(){
-			_sock.output.writeUInt16(s.length);
-			_sock.output.writeString(s); 
+			sock.output.writeUInt16(s.length);
+			sock.output.writeString(s); 
 //		});
 	#end
 	}
@@ -326,16 +326,16 @@ class TcpConnection{
 	public function recvPacket(callback:Packet->Void){
 	#if flash
 		_workflow.push(_workerAction.bind(2, function(){
-			var size:UInt = _sock.readUnsignedShort();
+			var size:UInt = sock.readUnsignedShort();
 			_workflow.shift();
 			_workflow.unshift(_workerAction.bind(size, function(){
-				delay(callback.bind(Packet.fromBytes(Bytes.ofString(_sock.readUTFBytes(size)))), 1);
+				delay(callback.bind(Packet.fromBytes(Bytes.ofString(sock.readUTFBytes(size)))), 1);
 			}));
 			_workflow.unshift(function():Bool{return true;});
 		}));
 	#else
 		_worker.sendMessage(function(){
-			_main.sendMessage(callback.bind(Packet.fromBytes(_sock.input.read(_sock.input.readUInt16())))); 
+			_main.sendMessage(callback.bind(Packet.fromBytes(sock.input.read(sock.input.readUInt16())))); 
 		});
 	#end
 	}
@@ -396,14 +396,14 @@ class TcpConnection{
 	public function listen(port:Int, connected:TcpConnection->Void, ?created:TcpConnection->Void, ?fail:Dynamic->Void, host:String = "0.0.0.0", maxconnections:Int = 0){
         _timer.run = _checkWorkflow;
 		_worker=Thread.create(function(){
-			_sock.bind(new sys.net.Host(host), port);
-			_sock.listen(maxconnections);
+			sock.bind(new sys.net.Host(host), port);
+			sock.listen(maxconnections);
 //	        trace("Starting server...");
 			if (created != null)
 				created(this);
 			try{
 				while( true ) {
-					var c:Socket = _sock.accept();
+					var c:Socket = sock.accept();
 					c.setTimeout(2);
 					var p = c.input.read(2);
 					if (p.toString() == "<p"){//flash policy ask
@@ -413,11 +413,11 @@ class TcpConnection{
 					}else{
 						_main.sendMessage(function(){
 							var conn:TcpConnection = new TcpConnection();
-							conn._sock = c;
-							conn._sock.setTimeout(0);
-							conn._sock.input.bigEndian = false;
-							conn._sock.output.bigEndian = false;
-							conn._sock.setFastSend(true);
+							conn.sock = c;
+							conn.sock.setTimeout(0);
+							conn.sock.input.bigEndian = false;
+							conn.sock.output.bigEndian = false;
+							conn.sock.setFastSend(true);
 							conn._timer.run = conn._checkWorkflow;
 							conn._worker = Thread.create(_doWork);
 							connected(conn);
@@ -428,7 +428,7 @@ class TcpConnection{
 				if (fail != null)
 					fail(e);
 			}
-			_sock.close();
+			sock.close();
 		});
 	}
 
@@ -447,6 +447,6 @@ class TcpConnection{
 		}catch (e:Dynamic){trace(e); };
 		return new sys.net.Host(sys.net.Host.localhost()).toString();
 	}
-	
+
 #end
 }
