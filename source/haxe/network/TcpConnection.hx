@@ -445,22 +445,27 @@ class TcpConnection{
 	 * Get local ip address, required internet for correct work, otherwise may return 127.0.0.1;
 	 * @return
 	 */
-	public static function getMyHost():String{
-		try{
-			var s = new sys.net.Socket();
-			s.connect(new sys.net.Host("ya.ru"), 80);
-			var host = s.host().host.toString();
-			s.close();
-			return host;
-		}catch (e:Dynamic){trace(e); };
-		return new sys.net.Host(sys.net.Host.localhost()).toString();
+	public static function getMyHost(callback:String->Void){
+		Thread.create(function(){
+			try{
+				var s:Socket = new Socket();
+				s.connect(new Host("ya.ru"), 80);
+				var host:String = s.host().host.toString();
+				s.close();
+				callback(host);
+				return;
+			}catch (e:Dynamic){
+				trace(e); 			
+				callback(new Host(Host.localhost()).toString());
+			};
+		});
 	}
 
 	public static function isAvailable(host:String, port:Int):Bool{
 		var s = new sys.net.Socket();
 		try{
 			s.setTimeout(0.1);
-			s.connect(new sys.net.Host(host), port);
+			s.connect(new Host(host), port);
 			s.setTimeout(0.1);
 			s.output.writeByte(1);
 			s.close();
@@ -469,6 +474,17 @@ class TcpConnection{
 			trace(e);
 		}
 		return false;
+	}
+	
+	public static function checkHosts(arr:Array<Dynamic>, onFound:String->Int->Void, onEnd:Void->Void){
+		Thread.create(function(){
+			for(hi in arr){
+				if (isAvailable(hi.host, hi.port)){
+					onFound(hi.host, hi.port);
+				}
+			}
+			onEnd();
+		});
 	}
 	
 #end
