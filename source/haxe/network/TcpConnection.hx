@@ -455,7 +455,7 @@ class TcpConnection{
 				callback(host);
 				return;
 			}catch (e:Dynamic){
-				trace(e); 			
+			//	trace(e); 			
 				callback(new Host(Host.localhost()).toString());
 			};
 		});
