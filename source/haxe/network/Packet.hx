@@ -77,13 +77,13 @@ class Packet{
 	
 	public function addByte(a:Int):Void{
 		var c:Chank=new Chank(1);
-		c.data=a;
+		c.data=get8from32(a);
 		chanks.push(c);
 	}
 	
 	public function addShort(a:Int):Void{
 		var c:Chank=new Chank(2);
-		c.data=a;
+		c.data=get16from32(a);
 		chanks.push(c);
 	}
 	
@@ -139,8 +139,8 @@ class Packet{
 		var buf:BytesOutput = new BytesOutput();
 		var size = 2;
 		buf.bigEndian = false;
-		buf.writeInt8(type);
-		buf.writeInt8(chanks.length>125 ? -1 : chanks.length);
+		buf.writeInt8(get8from32(type));
+//		buf.writeInt8(chanks.length>125 ? -1 : chanks.length);
 		for (c in chanks){
 			buf.writeInt8(c.type);
 			switch c.type {
@@ -198,9 +198,10 @@ class Packet{
 		var p:Packet = new Packet();
 		var bi:BytesInput = new BytesInput(b);
 		var size = b.length;
+		bi.bigEndian = false;
 		p.type = bi.readInt8();
 		size--;
-		bi.readInt8();//number of chanks
+//		bi.readInt8();//number of chanks
 		size--;
 		while(size>1){
 			var type:Int = bi.readInt8();
@@ -249,5 +250,32 @@ class Packet{
 			p.chanks.push(c);
 		}
 		return p; 
+	}
+	
+	public static function get16from32(i:Int):Int{
+		if ( i < -0x8000 || i >= 0x8000 ){
+			trace("int will be cutted to short");
+			var o = i & 0xffff;
+			if ( o < -0x8000 ){
+				o += 0xffff;
+			}
+			if ( o >= 0x8000 )
+				o -= 0xffff;
+			return o;
+		}
+		return i;
+	}
+	
+	public static function get8from32(i:Int):Int{
+		if ( i < -0x80 || i >= 0x80 ){
+			trace("int will be cutted to byte");
+			var o = i & 0xff;
+			if ( o < -0x8000 )
+				o += 0xff;
+			if ( o >= 0x8000 )
+				o -= 0xff;
+			return o;
+		}
+		return i;
 	}
 }

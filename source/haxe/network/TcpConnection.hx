@@ -370,6 +370,7 @@ class TcpConnection{
 			}while(work != null);
 		}catch(e:Dynamic){
 			trace(e);
+			trace(CallStack.toString(CallStack.exceptionStack()));
 		}
 	#end
 	}
