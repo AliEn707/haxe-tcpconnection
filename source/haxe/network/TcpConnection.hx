@@ -31,7 +31,7 @@ class TcpConnection{
 	public var read:Lock = new Lock();
 	public var sock:Null<Socket> = null;
 	
-	private var _timer:Timer = new Timer(100); //TODO: check delay value
+	private var _timer:Timer = new Timer(1); //TODO: check delay value
 	private var _fail:Null<Dynamic->Void>;
 	
 #if flash
