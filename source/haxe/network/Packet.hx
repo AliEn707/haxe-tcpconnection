@@ -234,17 +234,17 @@ class Packet{
 				case 8: 
 					var s:Int = bi.readUInt16();
 					c.data=lime.utils.Bytes.fromBytes(bi.read(s)).decompress(CompressionAlgorithm.LZMA);
-					trace(c.data);
+//					trace(c.data);
 					size-= cast(c.data,Bytes).length+2;
-				case 8: 
+				case 9: 
 					var s:Int = bi.readUInt16();
 					c.data=lime.utils.Bytes.fromBytes(bi.read(s)).decompress(CompressionAlgorithm.ZLIB);
-					trace(c.data);
+//					trace(c.data);
 					size-= cast(c.data,Bytes).length+2;
-				case 8: 
+				case 10: 
 					var s:Int = bi.readUInt16();
 					c.data=lime.utils.Bytes.fromBytes(bi.read(s)).decompress(CompressionAlgorithm.GZIP);
-					trace(c.data);
+//					trace(c.data);
 					size-= cast(c.data,Bytes).length+2;
 			}
 			p.chanks.push(c);
