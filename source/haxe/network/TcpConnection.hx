@@ -26,7 +26,9 @@ import java.vm.Thread;
 #elseif flash
 #end
 
-class TcpConnection{
+class TcpConnection{	
+//	private static var ready:Bool = false;
+	
 	public var write:Lock = new Lock();
 	public var read:Lock = new Lock();
 	public var sock:Null<Socket> = null;
@@ -37,14 +39,18 @@ class TcpConnection{
 #if flash
 	private var _workflow:Array<Void->Void> = new Array<Void->Void>();
 #else
+	private var _sender:Null<Thread> = null;
 	private var _worker:Thread;
 	private var _main:Thread;
 #end
 
-	public function new(){
+	public function new(use_sender:Bool=true){
 		sock = new Socket();
 	#if !flash
 		_main = Thread.current();
+		if (use_sender){
+			_sender = Thread.create(_doWork);
+		}
 	#end
 	}
 	
@@ -111,6 +117,10 @@ class TcpConnection{
 	
 	public function close(){
 		sock.close();
+		#if !flash
+			try{_worker.sendMessage(null);}catch(e:Any){}
+			try{_sender.sendMessage(null);}catch(e:Any){}
+		#end
 	}
 
 	public function setFailCallback(fail:Dynamic->Void){
@@ -241,7 +251,11 @@ class TcpConnection{
 		sock.writeByte(a);
 		sock.flush();
 	#else
-		sock.output.writeInt8(a);
+		var action = function(){sock.output.writeInt8(a); };
+		if (_sender != null)
+			_sender.sendMessage(action);
+		else
+			action();
 	#end
 	}
 
@@ -250,9 +264,11 @@ class TcpConnection{
 		sock.writeShort(a);
 		sock.flush();
 	#else
-//		_worker.sendMessage(function(){
-		sock.output.writeInt16(a);
-//		});
+		var action = function(){sock.output.writeInt16(a); };
+		if (_sender != null)
+			_sender.sendMessage(action);
+		else
+			action();
 	#end
 	}
 
@@ -261,9 +277,11 @@ class TcpConnection{
 		sock.writeShort(a); //TODO:check
 		sock.flush();
 	#else
-//		_worker.sendMessage(function(){
-		sock.output.writeUInt16(a);
-//		});
+		var action = function(){sock.output.writeUInt16(a); };
+		if (_sender != null)
+			_sender.sendMessage(action);
+		else
+			action();
 	#end
 	}
 
@@ -272,9 +290,11 @@ class TcpConnection{
 		sock.writeInt(a);
 		sock.flush();
 	#else
-//		_worker.sendMessage(function(){
-		sock.output.writeInt32(a);
-//		});
+		var action = function(){sock.output.writeInt32(a); };
+		if (_sender != null)
+			_sender.sendMessage(action);
+		else
+			action();
 	#end
 	}
 
@@ -283,9 +303,11 @@ class TcpConnection{
 		sock.writeFloat(a);
 		sock.flush();
 	#else
-//		_worker.sendMessage(function(){
-		sock.output.writeFloat(a);
-//		});
+		var action = function(){sock.output.writeFloat(a); };
+		if (_sender != null)
+			_sender.sendMessage(action);
+		else
+			action();
 	#end
 	}
 
@@ -294,9 +316,11 @@ class TcpConnection{
 		sock.writeDouble(a);
 		sock.flush();
 	#else
-//		_worker.sendMessage(function(){
-		sock.output.writeDouble(a);	
-//		});
+		var action = function(){sock.output.writeDouble(a);	};
+		if (_sender != null)
+			_sender.sendMessage(action);
+		else
+			action();
 	#end
 	}
 
@@ -305,9 +329,11 @@ class TcpConnection{
 		sock.writeBytes(s.getData(), 0, s.length);
 		sock.flush();
 	#else
-//		_worker.sendMessage(function(){
-			sock.output.write(s);	
-//		});
+		var action = function(){sock.output.write(s); };
+		if (_sender != null)
+			_sender.sendMessage(action);
+		else
+			action();
 	#end
 	}
 
@@ -316,10 +342,14 @@ class TcpConnection{
 		sock.writeUTF(s);//unsigned!!
 		sock.flush();
 	#else
-//		_worker.sendMessage(function(){
+		var action = function(){
 			sock.output.writeUInt16(s.length);
-			sock.output.writeString(s); 
-//		});
+			sock.output.writeString(s);  
+		};
+		if (_sender != null)
+			_sender.sendMessage(action);
+		else
+			action();
 	#end
 	}
 	
@@ -341,11 +371,21 @@ class TcpConnection{
 	}
 
 	public function sendPacket(p:Packet):Void{
+	#if flash
 		var bytes:Bytes = p.getBytes();
-		write.lock();
-			sendUShort(bytes.length);
-			sendBytes(bytes);
-		write.unlock();		
+		sendUShort(bytes.length);
+		sendBytes(bytes);
+	#else
+		var action = function(){
+			var bytes:Bytes = p.getBytes();
+			sock.output.writeUInt16(bytes.length);
+			sock.output.write(bytes);
+		};
+		if (_sender != null)
+			_sender.sendMessage(action);
+		else
+			action();
+	#end
 	}
 	
 	private function _checkWorkflow(){
@@ -433,6 +473,7 @@ class TcpConnection{
 				}
 			}catch (e:Dynamic){
 				trace(e);
+				trace(CallStack.toString(CallStack.exceptionStack()));
 				if (fail != null)
 					fail(e);
 			}
