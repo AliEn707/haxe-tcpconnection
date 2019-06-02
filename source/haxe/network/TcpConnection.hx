@@ -18,11 +18,11 @@ import haxe.crypto.Base64;
 import haxe.Timer.delay;
 
 #if cpp
-import cpp.vm.Thread;
+typedef Thread = cpp.vm.Thread;
 #elseif neko
-import neko.vm.Thread;
+typedef Thread = neko.vm.Thread;
 #elseif java
-import java.vm.Thread;
+typedef Thread = java.vm.Thread;
 #elseif flash
 #end
 
